@@ -1,0 +1,4 @@
+##Create a Terraform file which will create following networks
+1. HOvnet (172.16.0.0/16) with AppSN 172.16.10.0/24 and WorkSubnet 172.16.20.0/24
+2. BranchSN (172.20.0.0/16) with one SN BRSN 172.20.10.0/24
+3. Make peer connection between two vnets
