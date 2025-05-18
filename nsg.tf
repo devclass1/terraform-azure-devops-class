@@ -53,6 +53,18 @@ resource "azurerm_network_security_group" "example" {
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
+
+  security_rule {
+    name                       = "allow-rdp"
+    priority                   = 120
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "3389"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
 }
 
 # Associate the NSG with the subnet
@@ -83,21 +95,18 @@ resource "azurerm_network_interface" "example" {
   }
 }
 
-# Create a virtual machine
+# Create a virtual machine with password authentication
 resource "azurerm_linux_virtual_machine" "example" {
   name                = "example-vm"
   resource_group_name = azurerm_resource_group.example.name
   location            = azurerm_resource_group.example.location
   size                = "Standard_B1s"
-  admin_username      = "sysadmin"
+  admin_username      = "adminuser"
+  admin_password      = "Passw0rd123#"
+  disable_password_authentication = false
   network_interface_ids = [
     azurerm_network_interface.example.id,
   ]
-
-  admin_ssh_key {
-    username   = "sysadmin"
-    public_key = file("~/.ssh/id_rsa.pub") # Replace with your public key path
-  }
 
   os_disk {
     caching              = "ReadWrite"
