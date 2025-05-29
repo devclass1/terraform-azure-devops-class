@@ -1,10 +1,21 @@
+# Configure the Azure provider
+terraform {
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 3.0.2"
+    }
+  }
+
+  required_version = ">= 1.1.0"
+}
 
 provider "azurerm" {
   features {}
 }
 
 resource "azurerm_resource_group" "rg" {
-  name     = "RG11"
+  name     = "RG12"
   location = "eastus2"
   
   tags = {
@@ -37,12 +48,45 @@ resource "azurerm_subnet" "AppSN" {
   address_prefixes     = ["172.16.2.0/24"]
 }
 
+# Create Network Security Group with SSH rule
+resource "azurerm_network_security_group" "ssh_nsg" {
+  name                = "ssh-access-nsg"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+
+  security_rule {
+    name                       = "AllowSSH"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  tags = {
+    Environment = "Development"
+  }
+}
+
+# Associate NSG with the worksSN subnet
+resource "azurerm_subnet_network_security_group_association" "worksSN_nsg" {
+  subnet_id                 = azurerm_subnet.worksSN.id
+  network_security_group_id = azurerm_network_security_group.ssh_nsg.id
+}
+
 # Create public IP address
 resource "azurerm_public_ip" "public_ip" {
   name                = "myPublicIP"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
   allocation_method   = "Dynamic"
+
+  tags = {
+    Environment = "Development"
+  }
 }
 
 # Create network interface
@@ -57,41 +101,38 @@ resource "azurerm_network_interface" "nic" {
     private_ip_address_allocation = "Dynamic"
     public_ip_address_id          = azurerm_public_ip.public_ip.id
   }
+
+  tags = {
+    Environment = "Development"
+  }
 }
 
 # Create Ubuntu VM in worksSN
-resource "azurerm_virtual_machine" "vm" {
+resource "azurerm_linux_virtual_machine" "vm" {
   name                  = "myUbuntuVM"
   location              = azurerm_resource_group.rg.location
   resource_group_name   = azurerm_resource_group.rg.name
   network_interface_ids = [azurerm_network_interface.nic.id]
-  vm_size               = "Standard_DS1_v2"
+  size                  = "Standard_B2s"
 
-  # Use the latest Ubuntu LTS image
-  storage_image_reference {
+  source_image_reference {
     publisher = "Canonical"
     offer     = "UbuntuServer"
     sku       = "18.04-LTS"
     version   = "latest"
   }
 
-  storage_os_disk {
+  os_disk {
     name              = "myOSDisk"
     caching           = "ReadWrite"
-    create_option     = "FromImage"
-    managed_disk_type = "Standard_LRS"
+    storage_account_type = "Standard_LRS"
   }
 
-  os_profile {
-    computer_name  = "myUbuntuVM"
-    admin_username = "azureuser"
-    admin_password = "Password1234!"
-  }
+  computer_name  = "myUbuntuVM"
+  admin_username = "sysadmin"
+  admin_password = "Password123#"
+  disable_password_authentication = false
 
-  os_profile_linux_config {
-    disable_password_authentication = false
-  }
-  
   tags = {
     Environment = "Development"
   }
